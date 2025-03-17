@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<!-- Ensure proper rendering on mobile devices -->
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Image Gallery</title>
+	<!-- Include exifr library for reading image metadata -->
+	<script src="https://cdn.jsdelivr.net/npm/exifr"></script>
+	<style>
+		/* ================= Global Layout and Styling ================= */
+		body {
+			display: flex;
+			font-family: "Segoe UI", Arial, sans-serif;
+			margin: 0;
+			padding: 0;
+			height: 100vh;
+			overflow: hidden;
+		}
+
+		/* Inherit font for buttons */
+		#folder-browser button,
+		#sort-options button,
+		#select-folder {
+			font-family: inherit;
+		}
+
+		/* ----------------- Folder Browser Pane ----------------- */
+		#folder-browser {
+			border-right: 1px solid #ccc;
+			padding: 10px;
+			overflow-y: auto;
+			white-space: nowrap;
+			font-size: 12.5px;
+		}
+
+		/* Resizer between the folder pane and gallery */
+		#resizer {
+			width: 5px;
+			cursor: ew-resize;
+			background-color: #ccc;
+		}
+
+		/* ----------------- Main Gallery Container ----------------- */
+		#gallery-container {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+		}
+
+		/* ---------------- Sorting Options Styling ---------------- */
+		#sort-options {
+			padding: 10px;
+			border-bottom: 1px solid #ccc;
+			background-color: #f7f7f7;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 20px;
+			align-items: center;
+		}
+
+		#sort-options .section {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+			align-items: center;
+		}
+
+		#sort-options button {
+			padding: 5px 10px;
+			border: 1px solid #007bff;
+			background-color: #fff;
+			color: #007bff;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 14px;
+		}
+
+		#sort-options button:hover:not(:disabled) {
+			background-color: #007bff;
+			color: white;
+		}
+
+		#sort-options button:disabled {
+			cursor: not-allowed;
+			color: #ccc;
+			border-color: #ccc;
+		}
+
+		#sort-options button.active {
+			background-color: #007bff;
+			color: white;
+		}
+
+		/* ----------------- Gallery Grid Styling ----------------- */
+		#gallery {
+			flex: 1;
+			display: grid;
+			gap: 10px;
+			padding: 10px;
+			overflow-y: auto;
+			justify-content: flex-start;
+			align-content: flex-start;
+		}
+
+		/* ----------------- Folder List Styling ----------------- */
+		.folder {
+			cursor: pointer;
+			padding: 5px;
+			border-radius: 5px;
+		}
+
+		.folder:hover {
+			background-color: #f0f0f0;
+		}
+
+		.folder.selected {
+			background-color: #007bff;
+			color: white;
+		}
+
+		.folder small {
+			font-size: 10px;
+			color: gray;
+			margin-left: 5px;
+		}
+
+		.folder-children {
+			margin-left: 10px;
+		}
+
+		/* ----------------- Thumbnail Styling ----------------- */
+		.thumbnail {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			cursor: pointer;
+		}
+
+		.thumbnail img {
+			max-width: 100%;
+			max-height: 100%;
+			border: 1px solid #ccc;
+			border-radius: 5px;
+		}
+
+		.thumbnail-title {
+			margin-top: 5px;
+			text-align: center;
+			font-size: 12.5px;
+			font-weight: bold;
+		}
+
+		.thumbnail-description {
+			text-align: center;
+			font-size: 8.5px;
+			color: gray;
+		}
+
+		/* ================= Lightbox (Full-Size Image View) ================= */
+		#lightbox {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.8);
+			display: none;
+			z-index: 1000;
+		}
+
+		/* Center the lightbox content both vertically and horizontally */
+		#lightbox-content {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			height: 100%;
+		}
+
+		/* Wrapper for the image and the copy button */
+		#lightbox-image-wrapper {
+			position: relative;
+			display: inline-block;
+		}
+
+		/* Full-size image styling: Ensures image fits within 95% of viewport dimensions */
+		#lightbox-image {
+			max-width: 95vw;
+			max-height: 95vh;
+			display: block;
+			border: 2px solid #fff;
+			border-radius: 5px;
+			box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+		}
+
+		/* ----------------- Copy Filename Button ----------------- */
+		/* Positioned just to the right of the image, using a transparent ⿻ character */
+		#copy-filename {
+			position: absolute;
+			top: 0;
+			left: 100%;
+			margin-left: 10px;
+			font-size: 48px;
+			background: none;
+			border: none;
+			color: white;
+			cursor: pointer;
+		}
+
+		/* ----------------- Lightbox Navigation Thumbnails ----------------- */
+		.lightbox-thumbnail {
+			position: absolute;
+			top: 50%;
+			transform: translateY(-50%);
+			background-color: #000;
+			cursor: pointer;
+			border: 2px solid #fff;
+			border-radius: 5px;
+		}
+
+		#lightbox-prev-thumbnail {
+			left: 20px;
+		}
+
+		#lightbox-next-thumbnail {
+			right: 20px;
+		}
+
+		/* ================= Folder Selection Button ================= */
+		#select-folder {
+			margin-bottom: 10px;
+			padding: 10px;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			background-color: #007bff;
+			color: #fff;
+			font-size: 16px;
+		}
+
+		#select-folder:hover {
+			background-color: #0056b3;
+		}
+
+		/* ================= Loading Progress Overlay ================= */
+		#loading-overlay {
+			display: none;
+			position: fixed;
+			left: 50%;
+			top: 50%;
+			transform: translate(-50%, -50%);
+			width: 320px;
+			background: rgba(0, 0, 0, 0.8);
+			color: #fff;
+			font-size: 14px;
+			border-radius: 10px;
+			padding: 20px;
+			z-index: 9999;
+			text-align: center;
+			box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+		}
+
+		#loading-overlay.visible {
+			display: block;
+		}
+
+		#loading-label {
+			margin-bottom: 15px;
+			font-size: 1em;
+		}
+
+		#loading-bar-container {
+			width: 100%;
+			height: 15px;
+			background-color: #ccc;
+			border-radius: 8px;
+			overflow: hidden;
+			position: relative;
+		}
+
+		#loading-bar-fill {
+			height: 100%;
+			background-color: #007bff;
+			width: 0%;
+			transition: width 0.1s linear;
+		}
+	</style>
+</head>
+
+<body>
+	<!-- ================= Folder Browser Pane ================= -->
+	<div id="folder-browser">
+		<button id="select-folder">Select Folder</button>
+		<div id="folder-list"></div>
+	</div>
+	<!-- Resizer element to adjust folder browser width -->
+	<div id="resizer"></div>
+	<!-- ================= Main Gallery Container ================= -->
+	<div id="gallery-container">
+		<!-- Sorting Options and Thumbnail Size Selectors -->
+		<div id="sort-options">
+			<div class="section">
+				<span>Sort:</span>
+				<button id="sort-alphabetical">Alphabetical</button>
+				<button id="sort-size">By Size</button>
+				<button id="sort-random">Randomized</button>
+				<button id="sort-date" class="active">By Date</button>
+				<!-- Default order is descending (newer first) -->
+				<button id="toggle-order">Order: Descending</button>
+			</div>
+			<div class="section">
+				<span>Thumbnail Size:</span>
+				<button class="size-selector" data-size="128">128px</button>
+				<button class="size-selector active" data-size="256">256px</button>
+				<button class="size-selector" data-size="512">512px</button>
+				<button class="size-selector" data-size="1024">1024px</button>
+			</div>
+		</div>
+		<!-- Gallery Grid for Image Thumbnails -->
+		<div id="gallery"></div>
+	</div>
+	<!-- ================= Lightbox for Full-Size Image Display ================= -->
+	<div id="lightbox">
+		<div id="lightbox-content">
+			<div id="lightbox-image-wrapper">
+				<img id="lightbox-image" src="" alt="Full Size">
+				<!-- Copy Filename Button: Copies the filename enclosed in double quotes -->
+				<button id="copy-filename" title="Copy filename">⿻</button>
+			</div>
+		</div>
+		<!-- Navigation Thumbnails for Lightbox -->
+		<img id="lightbox-prev-thumbnail" class="lightbox-thumbnail" src="" alt="Prev Thumbnail">
+		<img id="lightbox-next-thumbnail" class="lightbox-thumbnail" src="" alt="Next Thumbnail">
+	</div>
+	<!-- ================= Loading Progress Overlay ================= -->
+	<div id="loading-overlay">
+		<div id="loading-label">Loading...</div>
+		<div id="loading-bar-container">
+			<div id="loading-bar-fill"></div>
+		</div>
+	</div>
+	<script>
+		/**
+		 * Global Variables and Configuration
+		 */
+		const SUPPORTED_FORMATS = ['.jpg', '.jpeg', '.gif', '.png', '.webp', '.avif']; // Supported image formats
+		let currentImages = [];            // Array to store image data objects
+		let currentSortCriteria = "date";  // Default sorting criteria is by date
+		let sortOrder = "desc";            // Default sorting order is descending (newer first)
+		let thumbnailSize = 256;           // Default thumbnail size (in pixels)
+		let currentImageIndex = 0;         // Index of the currently displayed image in the lightbox
+		const lightboxNavThumbSize = 128;  // Size for lightbox navigation thumbnails
+		let currentController = null;      // AbortController for cancelling ongoing tasks
+		let currentRootNode = null;        // Stores the root folder node
+
+		/**
+		 * DOM Element References
+		 */
+		const folderBrowser = document.getElementById("folder-browser");
+		const folderList = document.getElementById("folder-list");
+		const selectFolderBtn = document.getElementById("select-folder");
+		const gallery = document.getElementById("gallery");
+		const lightbox = document.getElementById("lightbox");
+		const lightboxImage = document.getElementById("lightbox-image");
+		const lightboxPrevThumbnail = document.getElementById("lightbox-prev-thumbnail");
+		const lightboxNextThumbnail = document.getElementById("lightbox-next-thumbnail");
+		const resizer = document.getElementById("resizer");
+		const loadingOverlay = document.getElementById("loading-overlay");
+		const loadingLabel = document.getElementById("loading-label");
+		const loadingBarFill = document.getElementById("loading-bar-fill");
+		const copyButton = document.getElementById("copy-filename");
+
+		/**
+		 * Debounced Progress UI Updates
+		 * Updates the progress overlay with current loading progress.
+		 */
+		let progressUpdateScheduled = false;
+		let progressCurrent = 0, progressTotal = 0, progressLabel = "";
+		function updateProgressUI(current, total, label) {
+			progressCurrent = current;
+			progressTotal = total;
+			progressLabel = label;
+			if (!progressUpdateScheduled) {
+				progressUpdateScheduled = true;
+				window.requestAnimationFrame(() => {
+					if (progressTotal === 0) {
+						loadingLabel.textContent = "";
+						loadingBarFill.style.width = "0%";
+					} else {
+						loadingLabel.textContent = `${progressLabel} ${progressCurrent} / ${progressTotal}`;
+						const percent = Math.round((progressCurrent / progressTotal) * 100);
+						loadingBarFill.style.width = percent + "%";
+					}
+					progressUpdateScheduled = false;
+				});
+			}
+		}
+
+		/**
+		 * Concurrency and Loading Operation Management
+		 * startLoadingOperation: Begins a new loading operation, aborting any previous one.
+		 * finishLoadingOperation: Hides the loading overlay once an operation completes.
+		 * checkAbort: Throws an error if the provided signal is aborted.
+		 */
+		function startLoadingOperation() {
+			if (currentController) { currentController.abort(); }
+			const controller = new AbortController();
+			currentController = controller;
+			loadingBarFill.style.width = "0%";
+			loadingLabel.textContent = "";
+			loadingOverlay.classList.add("visible");
+			return controller;
+		}
+		function finishLoadingOperation() {
+			loadingOverlay.classList.remove("visible");
+			currentController = null;
+		}
+		function checkAbort(signal) {
+			if (signal.aborted) { throw new DOMException("Aborted", "AbortError"); }
+		}
+
+		/**
+		 * Image Loading and Metadata Functions
+		 * getImageDimensions: Returns image dimensions by creating a temporary Image.
+		 * getMetadata: Uses exifr to parse image metadata from a file.
+		 */
+		function getImageDimensions(url) {
+			return new Promise(resolve => {
+				const img = new Image();
+				img.onload = () => resolve({ width: img.width, height: img.height });
+				img.src = url;
+			});
+		}
+		async function getMetadata(file) {
+			try {
+				const result = await exifr.parse(file, { iptc: true, exif: true });
+				return result || {};
+			} catch {
+				return {};
+			}
+		}
+
+		/**
+		 * Folder and Subfolder Processing Functions
+		 * countAllSubfolders: Recursively counts all subfolders within a folder.
+		 * countImages: Counts the number of image files in a folder based on supported formats.
+		 * buildFolderTreeWithProgress: Recursively builds a folder tree with progress updates.
+		 * loadImagesWithProgress: Loads image files from a folder while updating progress.
+		 */
+		async function countAllSubfolders(folderHandle, signal) {
+			let count = 0;
+			for await (const [name, handle] of folderHandle.entries()) {
+				checkAbort(signal);
+				if (handle.kind === "directory") {
+					count++;
+					count += await countAllSubfolders(handle, signal);
+				}
+			}
+			return count;
+		}
+		async function countImages(folderHandle, signal) {
+			let count = 0;
+			for await (const [name, handle] of folderHandle.entries()) {
+				checkAbort(signal);
+				if (handle.kind === "file" && SUPPORTED_FORMATS.some(ext => name.toLowerCase().endsWith(ext))) {
+					count++;
+				}
+			}
+			return count;
+		}
+		async function buildFolderTreeWithProgress(folderHandle, parent, progressRef, signal) {
+			const folders = [];
+			for await (const [name, handle] of folderHandle.entries()) {
+				checkAbort(signal);
+				if (handle.kind === "directory") {
+					progressRef.current++;
+					updateProgressUI(progressRef.current, progressRef.total, "Scanning folder...");
+					const subSubs = await buildFolderTreeWithProgress(handle, { name, handle, parent }, progressRef, signal);
+					const fileCount = await countImages(handle, signal);
+					if (subSubs.length || fileCount) {
+						folders.push({ name, handle, parent, subFolders: subSubs, fileCount });
+					}
+				}
+			}
+			return folders.sort((a, b) => a.name.localeCompare(b.name));
+		}
+		async function loadImagesWithProgress(folderHandle, signal) {
+			const total = await countImages(folderHandle, signal);
+			let current = 0;
+			updateProgressUI(current, total, "Loading images...");
+			const images = [];
+			for await (const [name, handle] of folderHandle.entries()) {
+				checkAbort(signal);
+				if (handle.kind === "file" && SUPPORTED_FORMATS.some(ext => name.toLowerCase().endsWith(ext))) {
+					current++;
+					updateProgressUI(current, total, "Loading images...");
+					const file = await handle.getFile();
+					const url = URL.createObjectURL(file);
+					const dims = await getImageDimensions(url);
+					const meta = await getMetadata(file);
+					const caption = meta.Caption || "No Caption";
+					images.push({ name, url, size: file.size, lastModified: file.lastModified, caption, width: dims.width, height: dims.height });
+				}
+			}
+			return images;
+		}
+
+		/**
+		 * Rendering Functions
+		 * renderFolderTree: Renders the complete folder tree starting at the root node.
+		 * createFolderNode: Recursively creates folder nodes with their children.
+		 * highlightSelectedFolder: Highlights the currently selected folder in the UI.
+		 * renderGallery: Renders the image thumbnails in the gallery grid.
+		 */
+		function renderFolderTree(node) {
+			folderList.innerHTML = "";
+			createFolderNode(node, folderList, 0);
+		}
+		function createFolderNode(node, container, level) {
+			const folderEl = document.createElement("div");
+			folderEl.className = "folder";
+			folderEl.style.marginLeft = `${level * 10}px`;
+			folderEl.innerHTML = `${node.name}${node.fileCount > 0 ? `<small>(${node.fileCount})</small>` : ""}`;
+			const childrenContainer = document.createElement("div");
+			childrenContainer.className = "folder-children";
+			container.appendChild(folderEl);
+			container.appendChild(childrenContainer);
+			folderEl.onclick = async (e) => {
+				e.stopPropagation();
+				highlightSelectedFolder(folderEl);
+				const controller = startLoadingOperation();
+				try {
+					const signal = controller.signal;
+					loadingLabel.textContent = "Scanning folder...";
+					const newCount = await countImages(node.handle, signal);
+					node.fileCount = newCount;
+					const totalSubs = await countAllSubfolders(node.handle, signal);
+					let progressRef = { current: 0, total: totalSubs };
+					if (totalSubs > 0) {
+						updateProgressUI(0, totalSubs, "Scanning folder...");
+						node.subFolders = await buildFolderTreeWithProgress(node.handle, node, progressRef, signal);
+					} else {
+						node.subFolders = [];
+					}
+					folderEl.innerHTML = `${node.name}${node.fileCount > 0 ? `<small>(${node.fileCount})</small>` : ""}`;
+					childrenContainer.innerHTML = "";
+					node.subFolders.forEach(subNode => createFolderNode(subNode, childrenContainer, level + 1));
+					currentImages = await loadImagesWithProgress(node.handle, signal);
+					checkAbort(signal);
+					sortGallery(currentSortCriteria, sortOrder);
+				} catch (error) {
+					if (error.name === "AbortError") { console.log("Folder scan aborted."); }
+					else { console.error(error); }
+				} finally {
+					finishLoadingOperation();
+				}
+			};
+			node.subFolders.forEach(subNode => createFolderNode(subNode, childrenContainer, level + 1));
+		}
+		function highlightSelectedFolder(folderEl) {
+			document.querySelectorAll(".folder").forEach(el => el.classList.remove("selected"));
+			folderEl.classList.add("selected");
+		}
+		function renderGallery(images) {
+			gallery.style.gridTemplateColumns = `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`;
+			gallery.innerHTML = "";
+			images.forEach((imgData, i) => {
+				const thumb = document.createElement("div");
+				thumb.className = "thumbnail";
+				const imgEl = document.createElement("img");
+				imgEl.src = imgData.url;
+				imgEl.style.maxWidth = `${thumbnailSize}px`;
+				imgEl.style.maxHeight = `${thumbnailSize}px`;
+				imgEl.alt = imgData.name;
+				imgEl.addEventListener("click", () => openLightbox(i));
+				const title = document.createElement("div");
+				title.className = "thumbnail-title";
+				title.textContent = imgData.name;
+				const desc = document.createElement("div");
+				desc.className = "thumbnail-description";
+				desc.textContent = imgData.caption;
+				thumb.append(imgEl, title, desc);
+				gallery.appendChild(thumb);
+			});
+			gallery.scrollTop = 0;
+		}
+
+		/**
+		 * Sorting and Lightbox Functions
+		 * sortGallery: Sorts the images array based on selected criteria and order, then renders the gallery.
+		 * openLightbox: Opens the lightbox for the selected image.
+		 * updateLightboxImage: Updates the main lightbox image and sets the copy button data attribute.
+		 * setProportionalSize: Adjusts the size of navigation thumbnails proportionally.
+		 * updateLightboxThumbnails: Updates the previous and next thumbnails in the lightbox.
+		 */
+		function sortGallery(criteria, order) {
+			if (criteria === "alphabetical") { currentImages.sort((a, b) => a.name.localeCompare(b.name)); }
+			else if (criteria === "size") { currentImages.sort((a, b) => a.size - b.size); }
+			else if (criteria === "random") { currentImages.sort(() => Math.random() - 0.5); }
+			else if (criteria === "date") { currentImages.sort((a, b) => a.lastModified - b.lastModified); }
+			if (order === "desc") { currentImages.reverse(); }
+			renderGallery(currentImages);
+		}
+		function openLightbox(i) {
+			currentImageIndex = i;
+			updateLightboxImage();
+			lightbox.style.display = "flex";
+		}
+		function updateLightboxImage() {
+			lightboxImage.src = currentImages[currentImageIndex].url;
+			updateLightboxThumbnails();
+			// Set the copy button's dataset with the current image's filename
+			copyButton.dataset.filename = currentImages[currentImageIndex].name;
+		}
+		function setProportionalSize(el, i) {
+			const { width, height } = currentImages[i];
+			if (!width || !height) {
+				el.style.width = `${lightboxNavThumbSize}px`;
+				el.style.height = `${lightboxNavThumbSize}px`;
+			} else if (width < height) {
+				el.style.width = `${lightboxNavThumbSize}px`;
+				el.style.height = "auto";
+			} else {
+				el.style.width = "auto";
+				el.style.height = `${lightboxNavThumbSize}px`;
+			}
+		}
+		function updateLightboxThumbnails() {
+			const prevIndex = (currentImageIndex - 1 + currentImages.length) % currentImages.length;
+			const nextIndex = (currentImageIndex + 1) % currentImages.length;
+			lightboxPrevThumbnail.src = currentImages[prevIndex].url;
+			lightboxNextThumbnail.src = currentImages[nextIndex].url;
+			setProportionalSize(lightboxPrevThumbnail, prevIndex);
+			setProportionalSize(lightboxNextThumbnail, nextIndex);
+		}
+
+		/**
+		 * Lightbox Navigation and Keyboard Controls
+		 */
+		lightboxPrevThumbnail.addEventListener("click", e => {
+			e.stopPropagation();
+			currentImageIndex = (currentImageIndex - 1 + currentImages.length) % currentImages.length;
+			updateLightboxImage();
+		});
+		lightboxNextThumbnail.addEventListener("click", e => {
+			e.stopPropagation();
+			currentImageIndex = (currentImageIndex + 1) % currentImages.length;
+			updateLightboxImage();
+		});
+		lightbox.addEventListener("click", e => {
+			if (e.target.id !== "lightbox-prev-thumbnail" && e.target.id !== "lightbox-next-thumbnail" && e.target.id !== "copy-filename") {
+				lightbox.style.display = "none";
+				lightboxImage.src = "";
+			}
+		});
+		document.addEventListener("keydown", e => {
+			if (lightbox.style.display === "flex") {
+				if (e.key === "ArrowRight") {
+					currentImageIndex = (currentImageIndex + 1) % currentImages.length;
+					updateLightboxImage();
+				} else if (e.key === "ArrowLeft") {
+					currentImageIndex = (currentImageIndex - 1 + currentImages.length) % currentImages.length;
+					updateLightboxImage();
+				}
+			}
+		});
+
+		/**
+		 * Sorting and Thumbnail Size Controls
+		 */
+		function toggleOrder() {
+			sortOrder = sortOrder === "asc" ? "desc" : "asc";
+			document.getElementById("toggle-order").textContent = `Order: ${sortOrder === "asc" ? "Ascending" : "Descending"}`;
+			sortGallery(currentSortCriteria, sortOrder);
+		}
+		function updateSorting(criteria) {
+			currentSortCriteria = criteria;
+			document.querySelectorAll("#sort-options .section:first-child button").forEach(b => b.classList.remove("active"));
+			document.getElementById(`sort-${criteria}`).classList.add("active");
+			toggleOrderButton(criteria === "random");
+			sortGallery(criteria, sortOrder);
+		}
+		function toggleOrderButton(disable) {
+			document.getElementById("toggle-order").disabled = disable;
+		}
+		document.getElementById("sort-alphabetical").addEventListener("click", () => updateSorting("alphabetical"));
+		document.getElementById("sort-size").addEventListener("click", () => updateSorting("size"));
+		document.getElementById("sort-random").addEventListener("click", () => updateSorting("random"));
+		document.getElementById("sort-date").addEventListener("click", () => updateSorting("date"));
+		document.getElementById("toggle-order").addEventListener("click", toggleOrder);
+		document.querySelectorAll(".size-selector").forEach(b => {
+			b.addEventListener("click", () => {
+				thumbnailSize = parseInt(b.dataset.size, 10);
+				document.querySelectorAll(".size-selector").forEach(btn => btn.classList.remove("active"));
+				b.classList.add("active");
+				sortGallery(currentSortCriteria, sortOrder);
+			});
+		});
+
+		/**
+		 * Copy Filename Functionality
+		 * When the copy button is clicked, the current image's filename is copied to the clipboard,
+		 * enclosed in double quotes.
+		 */
+		copyButton.addEventListener("click", e => {
+			e.stopPropagation();
+			const filename = e.currentTarget.dataset.filename;
+			if (navigator.clipboard && filename) {
+				navigator.clipboard.writeText('"' + filename + '"');
+			}
+		});
+
+		/**
+		 * Pane Resizing Functionality
+		 * Allows the user to adjust the width of the folder browser pane.
+		 */
+		let isResizing = false;
+		resizer.addEventListener("mousedown", () => {
+			isResizing = true;
+			document.addEventListener("mousemove", resizePane);
+			document.addEventListener("mouseup", stopResize);
+		});
+		function resizePane(e) {
+			if (!isResizing) return;
+			folderBrowser.style.width = e.clientX + "px";
+		}
+		function stopResize() {
+			isResizing = false;
+			document.removeEventListener("mousemove", resizePane);
+			document.removeEventListener("mouseup", stopResize);
+		}
+
+		/**
+		 * Folder Selection and Initial Load
+		 * Uses the File System Access API to prompt the user to select a folder.
+		 * Builds the folder tree, loads images, and renders the gallery.
+		 */
+		selectFolderBtn.addEventListener("click", async () => {
+			try {
+				const rootHandle = await window.showDirectoryPicker();
+				const controller = startLoadingOperation();
+				const signal = controller.signal;
+				folderList.innerHTML = "";
+				folderBrowser.style.width = "auto";
+				const totalSubs = await countAllSubfolders(rootHandle, signal);
+				let progressRef = { current: 0, total: totalSubs };
+				updateProgressUI(0, totalSubs, "Building folders...");
+				const subFolders = await buildFolderTreeWithProgress(rootHandle, null, progressRef, signal);
+				checkAbort(signal);
+				const rootFileCount = await countImages(rootHandle, signal);
+				checkAbort(signal);
+				const rootNode = {
+					name: rootHandle.name,
+					handle: rootHandle,
+					subFolders,
+					parent: null,
+					fileCount: rootFileCount
+				};
+				currentRootNode = rootNode;
+				renderFolderTree(rootNode);
+				currentImages = await loadImagesWithProgress(rootHandle, signal);
+				checkAbort(signal);
+				sortGallery(currentSortCriteria, sortOrder);
+			} catch (error) {
+				if (error.name === "AbortError") { console.log("Root folder load aborted."); }
+				else if (error.name === "AbortError" || error.message === "The user aborted a request.") { console.log("Folder selection canceled by user."); }
+				else { console.error(error); }
+			} finally {
+				finishLoadingOperation();
+			}
+		});
+		document.addEventListener("DOMContentLoaded", () => { updateSorting("date"); });
+	</script>
+</body>
+
+</html>
