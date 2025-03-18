@@ -2,324 +2,324 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photo Map Gallery</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exifr"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            font-family: Arial, sans-serif;
-        }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Photo Map Gallery</title>
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/exifr"></script>
+	<style>
+		body {
+			margin: 0;
+			padding: 0;
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+			font-family: Arial, sans-serif;
+		}
 
-        #header {
-            padding: 10px;
-            background-color: #f7f7f7;
-            border-bottom: 1px solid #ccc;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+		#header {
+			padding: 10px;
+			background-color: #f7f7f7;
+			border-bottom: 1px solid #ccc;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
 
-        #select-folder {
-            padding: 10px;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            background-color: #007bff;
-            color: #fff;
-            cursor: pointer;
-        }
+		#select-folder {
+			padding: 10px;
+			font-size: 16px;
+			border: none;
+			border-radius: 5px;
+			background-color: #007bff;
+			color: #fff;
+			cursor: pointer;
+		}
 
-        #select-folder:hover {
-            background-color: #0056b3;
-        }
+			#select-folder:hover {
+				background-color: #0056b3;
+			}
 
-        #info-pane {
-            margin-left: 20px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
-        }
+		#info-pane {
+			margin-left: 20px;
+			font-size: 18px;
+			font-weight: bold;
+			color: #333;
+		}
 
-        #map {
-            flex: 1;
-            width: 100%;
-        }
+		#map {
+			flex: 1;
+			width: 100%;
+		}
 
-        #progress-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
+		#progress-modal {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.5);
+			display: none;
+			justify-content: center;
+			align-items: center;
+			z-index: 1000;
+		}
 
-        #progress-modal-content {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            width: 50%;
-            max-width: 400px;
-        }
+		#progress-modal-content {
+			background: white;
+			padding: 20px;
+			border-radius: 10px;
+			text-align: center;
+			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+			width: 50%;
+			max-width: 400px;
+		}
 
-        #progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #f0f0f0;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 20px;
-        }
+		#progress-bar {
+			width: 100%;
+			height: 20px;
+			background: #f0f0f0;
+			border-radius: 10px;
+			overflow: hidden;
+			margin-top: 20px;
+		}
 
-        #progress-bar-inner {
-            width: 0;
-            height: 100%;
-            background: #007bff;
-            transition: width 0.2s;
-        }
+		#progress-bar-inner {
+			width: 0;
+			height: 100%;
+			background: #007bff;
+			transition: width 0.2s;
+		}
 
-        .red-dot {
-            width: 12px;
-            height: 12px;
-            background: radial-gradient(circle at 30% 30%, #ff4d4d, #990000);
-            border-radius: 50%;
-        }
+		.red-dot {
+			width: 12px;
+			height: 12px;
+			background: radial-gradient(circle at 30% 30%, #ff4d4d, #990000);
+			border-radius: 50%;
+		}
 
-        .thumbnail-preview {
-            position: absolute;
-            display: none;
-            z-index: 1000;
-            pointer-events: none;
-            border: 1px solid #ccc;
-            background: white;
-            border-radius: 5px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-        }
+		.thumbnail-preview {
+			position: absolute;
+			display: none;
+			z-index: 1000;
+			pointer-events: none;
+			border: 1px solid #ccc;
+			background: white;
+			border-radius: 5px;
+			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+		}
 
-        .thumbnail-preview img {
-            max-width: 512px;
-            max-height: 512px;
-            display: block;
-            margin: 5px;
-        }
+			.thumbnail-preview img {
+				max-width: 512px;
+				max-height: 512px;
+				display: block;
+				margin: 5px;
+			}
 
-        #lightbox {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
+		#lightbox {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.8);
+			display: none;
+			justify-content: center;
+			align-items: center;
+			z-index: 1000;
+		}
 
-        #lightbox img {
-            max-width: 90%;
-            max-height: 90%;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
-        }
-    </style>
+			#lightbox img {
+				max-width: 90%;
+				max-height: 90%;
+				border-radius: 10px;
+				box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+			}
+	</style>
 </head>
 
 <body>
-    <div id="header">
-        <button id="select-folder">Select Folder</button>
-        <div id="info-pane">Photos Found: 0</div>
-    </div>
-    <div id="map"></div>
-    <div id="progress-modal">
-        <div id="progress-modal-content">
-            <h2>Processing Files</h2>
-            <p id="progress-text">Finding files...</p>
-            <div id="progress-bar">
-                <div id="progress-bar-inner"></div>
-            </div>
-        </div>
-    </div>
-    <div class="thumbnail-preview" id="thumbnail-preview">
-        <img src="" alt="Preview">
-    </div>
-    <div id="lightbox">
-        <img id="lightbox-image" src="" alt="Full Size">
-    </div>
-    <script>
-        const SUPPORTED_FORMATS = ['.jpg', '.jpeg'];
-        const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+	<div id="header">
+		<button id="select-folder">Select Folder</button>
+		<div id="info-pane">Photos Found: 0</div>
+	</div>
+	<div id="map"></div>
+	<div id="progress-modal">
+		<div id="progress-modal-content">
+			<h2>Processing Files</h2>
+			<p id="progress-text">Finding files...</p>
+			<div id="progress-bar">
+				<div id="progress-bar-inner"></div>
+			</div>
+		</div>
+	</div>
+	<div class="thumbnail-preview" id="thumbnail-preview">
+		<img src="" alt="Preview">
+	</div>
+	<div id="lightbox">
+		<img id="lightbox-image" src="" alt="Full Size">
+	</div>
+	<script>
+		const SUPPORTED_FORMATS = ['.jpg', '.jpeg'];
+		const map = L.map('map').setView([0, 0], 2);
+		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			attribution: '&copy; OpenStreetMap contributors'
+		}).addTo(map);
 
-        const progressModal = document.getElementById('progress-modal');
-        const progressBarInner = document.getElementById('progress-bar-inner');
-        const progressText = document.getElementById('progress-text');
-        const thumbnailPreview = document.getElementById('thumbnail-preview');
-        const thumbnailImg = thumbnailPreview.querySelector('img');
-        const lightbox = document.getElementById("lightbox");
-        const lightboxImage = document.getElementById("lightbox-image");
-        const infoPane = document.getElementById("info-pane");
+		const progressModal = document.getElementById('progress-modal');
+		const progressBarInner = document.getElementById('progress-bar-inner');
+		const progressText = document.getElementById('progress-text');
+		const thumbnailPreview = document.getElementById('thumbnail-preview');
+		const thumbnailImg = thumbnailPreview.querySelector('img');
+		const lightbox = document.getElementById("lightbox");
+		const lightboxImage = document.getElementById("lightbox-image");
+		const infoPane = document.getElementById("info-pane");
 
-        let totalFiles = 0, processedFiles = 0;
-        let currentMarkers = [];
+		let totalFiles = 0, processedFiles = 0;
+		let currentMarkers = [];
 
-        document.getElementById("select-folder").addEventListener("click", async () => {
-            try {
-                const rootHandle = await window.showDirectoryPicker();
-                clearMap();
-                const imagesWithGPS = await getImagesWithProgress(rootHandle);
+		document.getElementById("select-folder").addEventListener("click", async () => {
+			try {
+				const rootHandle = await window.showDirectoryPicker();
+				clearMap();
+				const imagesWithGPS = await getImagesWithProgress(rootHandle);
 
-                if (imagesWithGPS.length === 0) {
-                    alert("No photos with GPS data found in this folder.");
-                    return;
-                }
+				if (imagesWithGPS.length === 0) {
+					alert("No photos with GPS data found in this folder.");
+					return;
+				}
 
-                infoPane.textContent = `Photos Found: ${imagesWithGPS.length}`;
-                addDotsToMap(imagesWithGPS);
-            } catch (err) {
-                console.log("Folder selection was canceled or an error occurred.");
-                // Do nothing; retain the current state.
-            }
-        });
+				infoPane.textContent = `Photos Found: ${imagesWithGPS.length}`;
+				addDotsToMap(imagesWithGPS);
+			} catch (err) {
+				console.log("Folder selection was canceled or an error occurred.");
+				// Do nothing; retain the current state.
+			}
+		});
 
-        function clearMap() {
-            currentMarkers.forEach(marker => map.removeLayer(marker));
-            currentMarkers = [];
-            infoPane.textContent = "Photos Found: 0";
-        }
+		function clearMap() {
+			currentMarkers.forEach(marker => map.removeLayer(marker));
+			currentMarkers = [];
+			infoPane.textContent = "Photos Found: 0";
+		}
 
-        async function getImagesWithProgress(folderHandle) {
-            const imagesWithGPS = [];
-            totalFiles = 0;
-            processedFiles = 0;
-            progressBarInner.style.width = '0%';
-            progressText.textContent = 'Finding files...';
-            await countFiles(folderHandle);
-            progressModal.style.display = 'flex';
-            progressText.textContent = `Processing 1 of ${totalFiles} files...`;
-            const processedImages = await processFolder(folderHandle, imagesWithGPS);
-            progressModal.style.display = 'none';
-            return processedImages;
-        }
+		async function getImagesWithProgress(folderHandle) {
+			const imagesWithGPS = [];
+			totalFiles = 0;
+			processedFiles = 0;
+			progressBarInner.style.width = '0%';
+			progressText.textContent = 'Finding files...';
+			await countFiles(folderHandle);
+			progressModal.style.display = 'flex';
+			progressText.textContent = `Processing 1 of ${totalFiles} files...`;
+			const processedImages = await processFolder(folderHandle, imagesWithGPS);
+			progressModal.style.display = 'none';
+			return processedImages;
+		}
 
-        async function countFiles(folderHandle) {
-            for await (const [_, handle] of folderHandle.entries()) {
-                if (handle.kind === "file" && SUPPORTED_FORMATS.some(ext => handle.name.toLowerCase().endsWith(ext))) {
-                    totalFiles++;
-                } else if (handle.kind === "directory") {
-                    await countFiles(handle);
-                }
-            }
-        }
+		async function countFiles(folderHandle) {
+			for await (const [_, handle] of folderHandle.entries()) {
+				if (handle.kind === "file" && SUPPORTED_FORMATS.some(ext => handle.name.toLowerCase().endsWith(ext))) {
+					totalFiles++;
+				} else if (handle.kind === "directory") {
+					await countFiles(handle);
+				}
+			}
+		}
 
-        async function processFolder(folderHandle, imagesWithGPS) {
-            for await (const [_, handle] of folderHandle.entries()) {
-                if (handle.kind === "file" && SUPPORTED_FORMATS.some(ext => handle.name.toLowerCase().endsWith(ext))) {
-                    const file = await handle.getFile();
-                    const metadata = await getMetadataWithGPS(file);
+		async function processFolder(folderHandle, imagesWithGPS) {
+			for await (const [_, handle] of folderHandle.entries()) {
+				if (handle.kind === "file" && SUPPORTED_FORMATS.some(ext => handle.name.toLowerCase().endsWith(ext))) {
+					const file = await handle.getFile();
+					const metadata = await getMetadataWithGPS(file);
 
-                    if (metadata) {
-                        imagesWithGPS.push({
-                            name: handle.name,
-                            url: URL.createObjectURL(file),
-                            lat: metadata.latitude,
-                            lon: metadata.longitude
-                        });
-                    }
+					if (metadata) {
+						imagesWithGPS.push({
+							name: handle.name,
+							url: URL.createObjectURL(file),
+							lat: metadata.latitude,
+							lon: metadata.longitude
+						});
+					}
 
-                    processedFiles++;
-                    updateProgress(processedFiles, totalFiles);
-                } else if (handle.kind === "directory") {
-                    await processFolder(handle, imagesWithGPS);
-                }
-            }
+					processedFiles++;
+					updateProgress(processedFiles, totalFiles);
+				} else if (handle.kind === "directory") {
+					await processFolder(handle, imagesWithGPS);
+				}
+			}
 
-            return imagesWithGPS;
-        }
+			return imagesWithGPS;
+		}
 
-        function updateProgress(processed, total) {
-            const percentage = (processed / total) * 100;
-            progressBarInner.style.width = `${percentage}%`;
-            progressText.textContent = `Processing ${processed} of ${total} files...`;
-        }
+		function updateProgress(processed, total) {
+			const percentage = (processed / total) * 100;
+			progressBarInner.style.width = `${percentage}%`;
+			progressText.textContent = `Processing ${processed} of ${total} files...`;
+		}
 
-        async function getMetadataWithGPS(file) {
-            try {
-                const metadata = await exifr.gps(file);
-                if (metadata && metadata.latitude && metadata.longitude) {
-                    return { latitude: metadata.latitude, longitude: metadata.longitude };
-                }
-            } catch (err) {
-                console.warn("Failed to extract metadata for file:", file.name, err);
-            }
-            return null;
-        }
+		async function getMetadataWithGPS(file) {
+			try {
+				const metadata = await exifr.gps(file);
+				if (metadata && metadata.latitude && metadata.longitude) {
+					return { latitude: metadata.latitude, longitude: metadata.longitude };
+				}
+			} catch (err) {
+				console.warn("Failed to extract metadata for file:", file.name, err);
+			}
+			return null;
+		}
 
-        function addDotsToMap(images) {
-            images.forEach(image => {
-                const icon = L.divIcon({
-                    className: 'red-dot',
-                    iconSize: [12, 12]
-                });
-                const marker = L.marker([image.lat, image.lon], { icon }).addTo(map);
-                currentMarkers.push(marker);
+		function addDotsToMap(images) {
+			images.forEach(image => {
+				const icon = L.divIcon({
+					className: 'red-dot',
+					iconSize: [12, 12]
+				});
+				const marker = L.marker([image.lat, image.lon], { icon }).addTo(map);
+				currentMarkers.push(marker);
 
-                marker.on('mouseover', (e) => showThumbnail(e, image.url));
-                marker.on('mouseout', hideThumbnail);
-                marker.on('click', () => openLightbox(image.url));
-            });
+				marker.on('mouseover', (e) => showThumbnail(e, image.url));
+				marker.on('mouseout', hideThumbnail);
+				marker.on('click', () => openLightbox(image.url));
+			});
 
-            const bounds = images.map(img => [img.lat, img.lon]);
-            map.fitBounds(bounds, { padding: [20, 20] });
-        }
+			const bounds = images.map(img => [img.lat, img.lon]);
+			map.fitBounds(bounds, { padding: [20, 20] });
+		}
 
-        function showThumbnail(e, imageUrl) {
-            const { containerPoint } = e;
-            const mapContainer = document.getElementById('map');
-            const mapRect = mapContainer.getBoundingClientRect();
-            const previewWidth = 512, previewHeight = 512;
-            let left = containerPoint.x + 15, top = containerPoint.y;
-            if (left + previewWidth > mapRect.width) left = mapRect.width - previewWidth - 15;
-            if (top + previewHeight > mapRect.height) top = mapRect.height - previewHeight - 15;
-            thumbnailPreview.style.left = `${left}px`;
-            thumbnailPreview.style.top = `${top}px`;
-            thumbnailImg.src = imageUrl;
-            thumbnailPreview.style.display = 'block';
-        }
+		function showThumbnail(e, imageUrl) {
+			const { containerPoint } = e;
+			const mapContainer = document.getElementById('map');
+			const mapRect = mapContainer.getBoundingClientRect();
+			const previewWidth = 512, previewHeight = 512;
+			let left = containerPoint.x + 15, top = containerPoint.y;
+			if (left + previewWidth > mapRect.width) left = mapRect.width - previewWidth - 15;
+			if (top + previewHeight > mapRect.height) top = mapRect.height - previewHeight - 15;
+			thumbnailPreview.style.left = `${left}px`;
+			thumbnailPreview.style.top = `${top}px`;
+			thumbnailImg.src = imageUrl;
+			thumbnailPreview.style.display = 'block';
+		}
 
-        function hideThumbnail() {
-            thumbnailPreview.style.display = 'none';
-            thumbnailImg.src = '';
-        }
+		function hideThumbnail() {
+			thumbnailPreview.style.display = 'none';
+			thumbnailImg.src = '';
+		}
 
-        function openLightbox(imageUrl) {
-            lightboxImage.src = imageUrl;
-            lightbox.style.display = "flex";
-        }
+		function openLightbox(imageUrl) {
+			lightboxImage.src = imageUrl;
+			lightbox.style.display = "flex";
+		}
 
-        lightbox.addEventListener("click", (e) => {
-            if (e.target === lightbox) {
-                lightbox.style.display = "none";
-                lightboxImage.src = "";
-            }
-        });
-    </script>
+		lightbox.addEventListener("click", (e) => {
+			if (e.target === lightbox) {
+				lightbox.style.display = "none";
+				lightboxImage.src = "";
+			}
+		});
+	</script>
 </body>
 
 </html>
